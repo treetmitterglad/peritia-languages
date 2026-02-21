@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LessonData, TeachingCard, LanguageCode, Difficulty, SUPPORTED_LANGUAGES } from "@/lib/types";
 import { generateLesson } from "@/lib/mistral";
 import { getApiKey, getProgress, saveProgress } from "@/lib/storage";
-import { Loader2, Check, X, ArrowRight, Zap, Trophy, BookOpen, Volume2 } from "lucide-react";
+import { playSound } from "@/lib/sounds";
+import { Loader2, Check, X, ArrowRight, Zap, Trophy, BookOpen, Sparkles, Star } from "lucide-react";
 
 interface LessonViewProps {
   language: LanguageCode;
@@ -98,12 +99,15 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
     setError("");
     const apiKey = getApiKey();
     if (!apiKey) {
-      setError("No API key found");
+      setError("No API key found. Please add your API key in settings.");
       setLoading(false);
       return;
     }
     try {
       const data = await generateLesson(apiKey, language, difficulty);
+      if (!data || !data.exercises || data.exercises.length === 0) {
+        throw new Error("Invalid lesson data received");
+      }
       setLesson(data);
       setPhase("teaching");
       setTeachIdx(0);
@@ -112,7 +116,7 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
       setAnswered(false);
       setScore(0);
     } catch (e: any) {
-      setError(e.message || "Failed to generate lesson");
+      setError(e.message || "Failed to generate lesson. Please try again.");
     }
     setLoading(false);
   }, [language, difficulty]);
@@ -125,11 +129,14 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
   const isCorrect = selected === exercise?.correctIndex;
 
   const handleSelect = (idx: number) => {
-    if (answered) return;
+    if (answered || !exercise) return;
     setSelected(idx);
     setAnswered(true);
-    if (idx === exercise?.correctIndex) {
+    if (idx === exercise.correctIndex) {
       setScore((s) => s + 1);
+      playSound("correct");
+    } else {
+      playSound("fail");
     }
   };
 
@@ -140,10 +147,12 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
       setSelected(null);
       setAnswered(false);
     } else {
+      playSound("finished");
       setPhase("results");
       const progress = getProgress(language);
       progress.lessonsCompleted += 1;
-      progress.xp += score * 10;
+      const earnedXP = score * 10;
+      progress.xp += earnedXP;
       const today = new Date().toISOString().split("T")[0];
       if (progress.lastSessionDate !== today) {
         progress.streak += 1;
@@ -240,39 +249,113 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
   // — RESULTS PHASE —
   if (phase === "results") {
     const pct = Math.round((score / lesson.exercises.length) * 100);
+    const isPerfect = pct === 100;
+    const isGreat = pct >= 80;
+    
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="flex flex-col items-center justify-center min-h-[60vh] gap-6 p-6"
+        className="flex flex-col items-center justify-center min-h-[60vh] gap-6 p-6 relative overflow-hidden"
       >
-        <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 0.6 }} className="w-20 h-20 rounded-3xl bg-success/10 flex items-center justify-center">
-          <Trophy className="w-10 h-10 text-success" />
+        {isPerfect && (
+          <>
+            {[...Array(12)].map((_, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 0, scale: 0 }}
+                animate={{ 
+                  opacity: [0, 1, 0],
+                  y: [-20, -120],
+                  scale: [0, 1.5, 0.5],
+                  x: [0, (Math.random() - 0.5) * 200]
+                }}
+                transition={{ duration: 1.5, delay: i * 0.1 }}
+                className="absolute top-1/2 left-1/2"
+              >
+                <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+              </motion.div>
+            ))}
+          </>
+        )}
+        
+        <motion.div 
+          animate={{ 
+            rotate: isPerfect ? [0, 10, -10, 10, 0] : [0, 10, -10, 0],
+            scale: isPerfect ? [1, 1.1, 1] : [1]
+          }} 
+          transition={{ duration: 0.6 }} 
+          className={`w-20 h-20 rounded-3xl flex items-center justify-center ${
+            isPerfect ? "bg-yellow-500/20" : isGreat ? "bg-success/10" : "bg-primary/10"
+          }`}
+        >
+          {isPerfect ? (
+            <Sparkles className="w-10 h-10 text-yellow-500" />
+          ) : (
+            <Trophy className={`w-10 h-10 ${isGreat ? "text-success" : "text-primary"}`} />
+          )}
         </motion.div>
-        <h2 className="text-3xl font-display font-bold text-foreground">Lesson Complete!</h2>
-        <div className="flex items-center gap-4 text-lg">
+        
+        <div className="text-center">
+          <h2 className="text-3xl font-display font-bold text-foreground mb-2">
+            {isPerfect ? "Perfect! 🎉" : isGreat ? "Great Job!" : "Lesson Complete!"}
+          </h2>
+          {isPerfect && (
+            <p className="text-sm text-muted-foreground">Flawless performance!</p>
+          )}
+        </div>
+        
+        <motion.div 
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.3, type: "spring" }}
+          className="flex items-center gap-4 text-lg"
+        >
           <span className="text-foreground font-semibold">{pct}% accuracy</span>
           <span className="text-muted-foreground">•</span>
-          <span className="flex items-center gap-1 text-primary font-semibold">
+          <motion.span 
+            initial={{ scale: 0 }}
+            animate={{ scale: [0, 1.2, 1] }}
+            transition={{ delay: 0.5 }}
+            className="flex items-center gap-1 text-primary font-semibold"
+          >
             <Zap className="w-5 h-5" /> +{score * 10} XP
-          </span>
-        </div>
+          </motion.span>
+        </motion.div>
+        
         {lesson.newWords && lesson.newWords.length > 0 && (
-          <div className="bg-card border border-border rounded-xl p-4 w-full max-w-sm">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="bg-card border border-border rounded-xl p-4 w-full max-w-sm"
+          >
             <p className="text-sm font-semibold text-foreground mb-2">Words learned:</p>
             <div className="flex flex-wrap gap-2">
-              {lesson.newWords.map((w) => (
-                <span key={w.word} className="px-3 py-1 rounded-lg bg-secondary text-secondary-foreground text-sm">
+              {lesson.newWords.map((w, i) => (
+                <motion.span 
+                  key={w.word}
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.7 + i * 0.05 }}
+                  className="px-3 py-1 rounded-lg bg-secondary text-secondary-foreground text-sm"
+                >
                   {w.word} = {w.translation}
-                </span>
+                </motion.span>
               ))}
             </div>
-          </div>
+          </motion.div>
         )}
-        <div className="flex gap-3">
+        
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          className="flex gap-3"
+        >
           <button onClick={onBack} className="px-6 py-3 rounded-xl border border-border bg-card text-foreground font-medium hover:bg-secondary transition-colors">Home</button>
           <button onClick={loadLesson} className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 transition-all">Next Lesson →</button>
-        </div>
+        </motion.div>
       </motion.div>
     );
   }
@@ -319,16 +402,32 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
               return (
                 <motion.button
                   key={i}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
                   whileTap={!answered ? { scale: 0.97 } : {}}
                   onClick={() => handleSelect(i)}
-                  className={`relative px-5 py-4 rounded-xl border-2 text-left transition-all ${optClass}`}
+                  disabled={answered}
+                  className={`relative px-5 py-4 rounded-xl border-2 text-left transition-all ${optClass} disabled:cursor-not-allowed`}
                 >
                   <span className="text-foreground font-medium">{opt}</span>
                   {answered && i === exercise.correctIndex && (
-                    <Check className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-success" />
+                    <motion.div
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2"
+                    >
+                      <Check className="w-5 h-5 text-success" />
+                    </motion.div>
                   )}
                   {answered && i === selected && !isCorrect && i !== exercise.correctIndex && (
-                    <X className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-destructive" />
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: [0, 1.3, 1] }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2"
+                    >
+                      <X className="w-5 h-5 text-destructive" />
+                    </motion.div>
                   )}
                 </motion.button>
               );
@@ -345,8 +444,15 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
 
       <AnimatePresence>
         {answered && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-6 pb-4">
-            <button
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            exit={{ opacity: 0, y: 20 }}
+            className="mt-6 pb-4"
+          >
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={handleNext}
               className={`w-full py-4 rounded-xl font-semibold text-lg flex items-center justify-center gap-2 transition-all ${
                 isCorrect ? "bg-success text-success-foreground" : "bg-primary text-primary-foreground"
@@ -355,9 +461,9 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
               {currentIdx < lesson.exercises.length - 1 ? (
                 <>Continue <ArrowRight className="w-5 h-5" /></>
               ) : (
-                "See Results"
+                <>See Results <Trophy className="w-5 h-5" /></>
               )}
-            </button>
+            </motion.button>
           </motion.div>
         )}
       </AnimatePresence>

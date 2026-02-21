@@ -4,6 +4,10 @@ import { compressContext, getProgress } from "./storage";
 const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
 
 async function callMistral(apiKey: string, messages: { role: string; content: string }[]): Promise<string> {
+  if (!apiKey || apiKey.trim().length === 0) {
+    throw new Error("Invalid API key");
+  }
+
   const res = await fetch(MISTRAL_API_URL, {
     method: "POST",
     headers: {
@@ -19,11 +23,20 @@ async function callMistral(apiKey: string, messages: { role: string; content: st
   });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error("Invalid API key. Please check your Mistral API key.");
+    }
+    if (res.status === 429) {
+      throw new Error("Rate limit exceeded. Please try again in a moment.");
+    }
     const err = await res.text();
-    throw new Error(`Mistral API error (${res.status}): ${err}`);
+    throw new Error(`API error (${res.status}): ${err}`);
   }
 
   const data = await res.json();
+  if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+    throw new Error("Invalid response from API");
+  }
   return data.choices[0].message.content;
 }
 

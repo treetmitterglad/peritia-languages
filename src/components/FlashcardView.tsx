@@ -3,7 +3,7 @@ import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import { FlashcardItem, LanguageCode, Difficulty, SUPPORTED_LANGUAGES } from "@/lib/types";
 import { generateFlashcards } from "@/lib/mistral";
 import { getApiKey, getProgress, saveProgress } from "@/lib/storage";
-import { Loader2, RotateCcw, ArrowLeft, ArrowRight } from "lucide-react";
+import { Loader2, RotateCcw, ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
 
 interface FlashcardViewProps {
   language: LanguageCode;
@@ -16,6 +16,7 @@ const CATEGORIES = ["Greetings", "Food & Drink", "Travel", "Numbers", "Colors", 
 const FlashcardView = ({ language, difficulty, onBack }: FlashcardViewProps) => {
   const [cards, setCards] = useState<FlashcardItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [currentIdx, setCurrentIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [category, setCategory] = useState<string | null>(null);
@@ -24,15 +25,23 @@ const FlashcardView = ({ language, difficulty, onBack }: FlashcardViewProps) => 
 
   const loadCards = useCallback(async (cat: string) => {
     setLoading(true);
+    setError("");
     const apiKey = getApiKey();
-    if (!apiKey) return;
+    if (!apiKey) {
+      setError("No API key found");
+      setLoading(false);
+      return;
+    }
     try {
       const data = await generateFlashcards(apiKey, language, difficulty, cat);
+      if (!data || data.length === 0) {
+        throw new Error("No flashcards generated");
+      }
       setCards(data);
       setCurrentIdx(0);
       setFlipped(false);
-    } catch {
-      // silent
+    } catch (e: any) {
+      setError(e.message || "Failed to generate flashcards");
     }
     setLoading(false);
   }, [language, difficulty]);
@@ -89,18 +98,24 @@ const FlashcardView = ({ language, difficulty, onBack }: FlashcardViewProps) => 
     );
   }
 
-  if (cards.length === 0) {
+  if (error || cards.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <p className="text-muted-foreground">No cards generated. Try again.</p>
-        <button onClick={() => loadCards(category)} className="px-6 py-2 rounded-xl bg-primary text-primary-foreground font-medium">
-          Retry
-        </button>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 p-6">
+        <p className="text-destructive">{error || "No cards generated"}</p>
+        <div className="flex gap-3">
+          <button onClick={() => setCategory(null)} className="px-6 py-2 rounded-xl border border-border bg-card text-foreground font-medium">
+            Back
+          </button>
+          <button onClick={() => category && loadCards(category)} className="px-6 py-2 rounded-xl bg-primary text-primary-foreground font-medium">
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
 
   const card = cards[currentIdx];
+  const isLastCard = currentIdx === cards.length - 1;
 
   return (
     <div className="flex flex-col items-center gap-6 p-6 max-w-md mx-auto min-h-[60vh] justify-center">
@@ -108,10 +123,16 @@ const FlashcardView = ({ language, difficulty, onBack }: FlashcardViewProps) => 
         <button onClick={() => setCategory(null)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
           ← Categories
         </button>
-        <span className="text-sm text-muted-foreground">{currentIdx + 1}/{cards.length}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">{currentIdx + 1}/{cards.length}</span>
+          {isLastCard && <Sparkles className="w-4 h-4 text-yellow-500" />}
+        </div>
       </div>
 
       <motion.div
+        key={currentIdx}
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
         onClick={() => setFlipped(!flipped)}
         className="relative w-full aspect-[3/2] cursor-pointer"
         style={{ perspective: 1000 }}
@@ -143,26 +164,32 @@ const FlashcardView = ({ language, difficulty, onBack }: FlashcardViewProps) => 
       </motion.div>
 
       <div className="flex items-center gap-4">
-        <button
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={prev}
           disabled={currentIdx === 0}
           className="p-3 rounded-xl border border-border bg-card hover:bg-secondary disabled:opacity-30 transition-all"
         >
           <ArrowLeft className="w-5 h-5 text-foreground" />
-        </button>
-        <button
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={() => setFlipped(!flipped)}
           className="p-3 rounded-xl border border-border bg-card hover:bg-secondary transition-all"
         >
           <RotateCcw className="w-5 h-5 text-foreground" />
-        </button>
-        <button
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={next}
-          disabled={currentIdx === cards.length - 1}
+          disabled={isLastCard}
           className="p-3 rounded-xl border border-border bg-card hover:bg-secondary disabled:opacity-30 transition-all"
         >
           <ArrowRight className="w-5 h-5 text-foreground" />
-        </button>
+        </motion.button>
       </div>
     </div>
   );

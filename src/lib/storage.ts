@@ -57,7 +57,11 @@ export function getAppState(): AppState {
 }
 
 export function saveAppState(state: AppState): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    console.error("Failed to save app state:", error);
+  }
 }
 
 export function getProgress(language: LanguageCode): UserProgress {
@@ -78,9 +82,13 @@ export function getProgress(language: LanguageCode): UserProgress {
 }
 
 export function saveProgress(language: LanguageCode, progress: UserProgress): void {
-  const state = getAppState();
-  state.progress[language] = progress;
-  saveAppState(state);
+  try {
+    const state = getAppState();
+    state.progress[language] = progress;
+    saveAppState(state);
+  } catch (error) {
+    console.error("Failed to save progress:", error);
+  }
 }
 
 export function compressContext(progress: UserProgress): string {

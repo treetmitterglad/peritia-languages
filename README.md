@@ -1,73 +1,219 @@
-# Welcome to your Lovable project
+# Peritia Languages
 
-## Project info
+An AI-powered language learning application that provides personalized lessons, interactive exercises, and spaced repetition flashcards. Built with React, TypeScript, and powered by Mistral AI.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Features
 
-## How can I edit this code?
+### Adaptive Learning System
+- AI-generated lessons tailored to your proficiency level
+- Progressive difficulty scaling from beginner to advanced
+- Context-aware content based on your learning history
 
-There are several ways of editing your application.
+### Interactive Lessons
+- Structured teaching phase with pronunciation guides and examples
+- Multiple exercise types: multiple choice, fill-in-the-blank, word matching
+- Real-time feedback with audio cues
+- Performance-based celebrations and progress tracking
 
-**Use Lovable**
+### Flashcard System
+- Category-based vocabulary review
+- Spaced repetition algorithm for optimal retention
+- Flip animations and intuitive navigation
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### Progress Tracking
+- XP system with milestone rewards
+- Daily streak tracking with visual indicators
+- Comprehensive session history
+- Word count and accuracy metrics
 
-Changes made via Lovable will be committed automatically to this repo.
+### Supported Languages
+Spanish, German, French, Italian, Portuguese, Dutch, Russian, Chinese (Simplified & Traditional), Japanese, Korean, Arabic, Hindi, Turkish, Polish, Swedish, Finnish, Greek, Hebrew, Danish, Norwegian
 
-**Use your preferred IDE**
+## Technology Stack
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- **Frontend**: React 18, TypeScript
+- **Styling**: Tailwind CSS, shadcn/ui components
+- **Animations**: Framer Motion
+- **AI**: Mistral AI API
+- **Build Tool**: Vite
+- **State Management**: React Hooks
+- **Storage**: LocalStorage with encryption
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Prerequisites
 
-Follow these steps:
+- Node.js 16.x or higher
+- npm or yarn package manager
+- Mistral AI API key ([Get one here](https://console.mistral.ai/))
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Installation
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Standard Installation
 
-# Step 3: Install the necessary dependencies.
-npm i
+1. Clone the repository:
+```bash
+git clone https://github.com/treetmitterglad/peritia-languages.git
+cd peritia-languages
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Start the development server:
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+4. Open your browser and navigate to `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Docker Installation
 
-**Use GitHub Codespaces**
+1. Clone the repository:
+```bash
+git clone https://github.com/treetmitterglad/peritia-languages.git
+cd peritia-languages
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+2. Run the installation script:
+```bash
+./docker-install.sh
+```
 
-## What technologies are used for this project?
+3. Open your browser and navigate to `http://localhost:8080`
 
-This project is built with:
+#### Docker Management Commands
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```bash
+# View logs
+docker-compose logs -f
 
-## How can I deploy this project?
+# Stop the container
+docker-compose stop
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+# Restart the container
+docker-compose restart
 
-## Can I connect a custom domain to my Lovable project?
+# Stop and remove the container
+docker-compose down
 
-Yes, you can!
+# Rebuild after code changes
+docker-compose up -d --build
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Configuration
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### API Key Setup
+On first launch, you'll be prompted to enter your Mistral AI API key. The key is encrypted and stored locally in your browser.
+
+### Theme
+The application supports light and dark modes. Toggle between themes using the sun/moon icon in the dashboard header.
+
+## Project Structure
+
+```
+src/
+├── components/          # React components
+│   ├── Dashboard.tsx    # Main dashboard view
+│   ├── LessonView.tsx   # Lesson interface
+│   ├── FlashcardView.tsx # Flashcard interface
+│   ├── Onboarding.tsx   # Initial setup flow
+│   └── ui/              # Reusable UI components
+├── lib/                 # Core utilities
+│   ├── mistral.ts       # AI API integration
+│   ├── storage.ts       # LocalStorage management
+│   ├── sounds.ts        # Audio feedback system
+│   └── types.ts         # TypeScript definitions
+├── pages/               # Route components
+└── hooks/               # Custom React hooks
+```
+
+## Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
+- `npm run test` - Run tests
+- `npm run test:watch` - Run tests in watch mode
+
+## Error Handling
+
+The application includes comprehensive error handling:
+
+- **API Errors**: Clear messages for authentication, rate limiting, and network issues
+- **Data Validation**: Ensures lesson structure integrity before rendering
+- **Storage Failures**: Graceful degradation if LocalStorage is unavailable
+- **Fallback Content**: Provides basic lessons if AI generation fails
+
+## Audio Feedback
+
+Sound effects are located in `public/sounds/`:
+- `correct.wav` - Played on correct answers
+- `fail.wav` - Played on incorrect answers
+- `finished.wav` - Played on lesson completion
+
+Audio is non-blocking and will not interrupt the user experience if playback fails.
+
+## Performance Optimizations
+
+- Lazy loading of components
+- Optimized animations using GPU acceleration
+- Efficient state management with React hooks
+- Compressed context for API calls to reduce token usage
+
+## Browser Support
+
+- Chrome/Edge 90+
+- Firefox 88+
+- Safari 14+
+- Opera 76+
+
+## Security
+
+- API keys are encrypted before storage
+- No sensitive data is transmitted to third parties
+- All API calls use HTTPS
+- Input sanitization on user-generated content
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/improvement`)
+3. Commit your changes (`git commit -am 'Add new feature'`)
+4. Push to the branch (`git push origin feature/improvement`)
+5. Open a Pull Request
+
+## License
+
+This project is private and proprietary.
+
+## Troubleshooting
+
+### Build Errors
+Ensure all dependencies are installed:
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### API Key Issues
+- Verify your Mistral AI API key is valid
+- Check that you have sufficient API credits
+- Ensure your network allows connections to api.mistral.ai
+
+### Audio Not Playing
+- Check browser audio permissions
+- Verify sound files exist in `public/sounds/`
+- Try a different browser if issues persist
+
+## Support
+
+For issues, questions, or feature requests, please open an issue in the repository.
+
+## Acknowledgments
+
+- Built with [Vite](https://vitejs.dev/)
+- UI components from [shadcn/ui](https://ui.shadcn.com/)
+- Powered by [Mistral AI](https://mistral.ai/)
+- Icons from [Lucide](https://lucide.dev/)

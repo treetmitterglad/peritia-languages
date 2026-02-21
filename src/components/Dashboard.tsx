@@ -143,22 +143,41 @@ const Dashboard = ({ language, difficulty, onChangeLanguage, onLogout }: Dashboa
 
       {/* Stats bar */}
       <div className="px-6 py-3 flex gap-4">
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10">
+        <motion.div 
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", delay: 0.1 }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10"
+        >
           <Zap className="w-4 h-4 text-primary" />
           <span className="text-sm font-semibold text-primary">{progress.xp} XP</span>
-        </div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-streak/10">
-          <Flame className="w-4 h-4 text-streak" />
-          <span className="text-sm font-semibold text-streak">{progress.streak} day streak</span>
-        </div>
+        </motion.div>
+        <motion.div 
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", delay: 0.2 }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
+            progress.streak >= 7 ? "bg-yellow-500/20" : "bg-streak/10"
+          }`}
+        >
+          <Flame className={`w-4 h-4 ${progress.streak >= 7 ? "text-yellow-500" : "text-streak"}`} />
+          <span className={`text-sm font-semibold ${progress.streak >= 7 ? "text-yellow-500" : "text-streak"}`}>
+            {progress.streak} day streak
+          </span>
+          {progress.streak >= 7 && <span className="text-xs">🔥</span>}
+        </motion.div>
       </div>
 
       {/* Main actions */}
       <div className="p-6 space-y-4">
         <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => setView("lesson")}
-          className="w-full p-6 rounded-2xl bg-primary text-primary-foreground text-left transition-all hover:opacity-95"
+          className="w-full p-6 rounded-2xl bg-primary text-primary-foreground text-left transition-all hover:opacity-95 shadow-lg"
         >
           <BookOpen className="w-8 h-8 mb-3 opacity-80" />
           <h3 className="text-xl font-display font-bold">Start a Lesson</h3>
@@ -166,9 +185,13 @@ const Dashboard = ({ language, difficulty, onChangeLanguage, onLogout }: Dashboa
         </motion.button>
 
         <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => setView("flashcards")}
-          className="w-full p-6 rounded-2xl bg-card border border-border text-left transition-all hover:border-primary/30"
+          className="w-full p-6 rounded-2xl bg-card border border-border text-left transition-all hover:border-primary/30 hover:shadow-md"
         >
           <Layers className="w-8 h-8 mb-3 text-accent" />
           <h3 className="text-xl font-display font-bold text-foreground">Flashcards</h3>
@@ -176,9 +199,13 @@ const Dashboard = ({ language, difficulty, onChangeLanguage, onLogout }: Dashboa
         </motion.button>
 
         <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => setView("stats")}
-          className="w-full p-6 rounded-2xl bg-card border border-border text-left transition-all hover:border-primary/30"
+          className="w-full p-6 rounded-2xl bg-card border border-border text-left transition-all hover:border-primary/30 hover:shadow-md"
         >
           <BarChart3 className="w-8 h-8 mb-3 text-muted-foreground" />
           <h3 className="text-xl font-display font-bold text-foreground">Progress</h3>
