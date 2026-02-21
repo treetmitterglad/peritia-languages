@@ -5,7 +5,7 @@ import { getProgress, getApiKey, getAppState, saveAppState, removeApiKey } from 
 import LessonView from "./LessonView";
 import FlashcardView from "./FlashcardView";
 import LanguageSelector from "./LanguageSelector";
-import { BookOpen, Layers, BarChart3, Zap, Flame, Settings, ChevronDown, Key } from "lucide-react";
+import { BookOpen, Layers, BarChart3, Zap, Flame, Settings, ChevronDown, Key, Moon, Sun } from "lucide-react";
 
 interface DashboardProps {
   language: LanguageCode;
@@ -18,8 +18,16 @@ type View = "home" | "lesson" | "flashcards" | "stats" | "language_switch";
 
 const Dashboard = ({ language, difficulty, onChangeLanguage, onLogout }: DashboardProps) => {
   const [view, setView] = useState<View>("home");
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
   const progress = getProgress(language);
   const lang = SUPPORTED_LANGUAGES.find((l) => l.code === language);
+
+  const toggleDark = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("peritia_theme", next ? "dark" : "light");
+  };
 
   if (view === "lesson") {
     return <LessonView language={language} difficulty={difficulty} onBack={() => setView("home")} />;
@@ -116,12 +124,20 @@ const Dashboard = ({ language, difficulty, onChangeLanguage, onLogout }: Dashboa
               Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"}!
             </h1>
           </div>
-          <button
-            onClick={() => setView("stats")}
-            className="p-2 rounded-xl hover:bg-secondary transition-colors"
-          >
-            <Settings className="w-5 h-5 text-muted-foreground" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={toggleDark}
+              className="p-2 rounded-xl hover:bg-secondary transition-colors"
+            >
+              {dark ? <Sun className="w-5 h-5 text-muted-foreground" /> : <Moon className="w-5 h-5 text-muted-foreground" />}
+            </button>
+            <button
+              onClick={() => setView("stats")}
+              className="p-2 rounded-xl hover:bg-secondary transition-colors"
+            >
+              <Settings className="w-5 h-5 text-muted-foreground" />
+            </button>
+          </div>
         </div>
       </div>
 

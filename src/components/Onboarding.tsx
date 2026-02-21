@@ -47,7 +47,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
 
             <div className="space-y-3">
               <h1 className="text-4xl font-display font-bold text-foreground">
-                Lingual
+                Peritia Languages
               </h1>
               <p className="text-muted-foreground text-lg">
                 Learn any language with AI-powered interactive lessons

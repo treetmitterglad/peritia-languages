@@ -1,7 +1,7 @@
 import { AppState, UserProgress, LanguageCode, FlashcardItem, CompressedSession } from "./types";
 
-const STORAGE_KEY = "lingual_app_state";
-const KEY_STORAGE = "lingual_api_key";
+const STORAGE_KEY = "peritia_app_state";
+const KEY_STORAGE = "peritia_api_key";
 
 // Simple encryption for API key using base64 + reversal (not military grade, but obscures from casual inspection)
 function encryptKey(key: string): string {
