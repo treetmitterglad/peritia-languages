@@ -8,6 +8,13 @@ const Index = () => {
   const [state, setState] = useState(getAppState());
   const hasKey = !!getApiKey();
 
+  useEffect(() => {
+    const saved = localStorage.getItem("peritia_theme");
+    if (saved === "dark" || (!saved && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+      document.documentElement.classList.add("dark");
+    }
+  }, []);
+
   const handleOnboardingComplete = (language: LanguageCode, difficulty: Difficulty) => {
     const newState = {
       ...state,
