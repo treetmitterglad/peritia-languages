@@ -1,13 +1,44 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState, useEffect } from "react";
+import { Difficulty, LanguageCode } from "@/lib/types";
+import { getApiKey, getAppState, saveAppState } from "@/lib/storage";
+import Onboarding from "@/components/Onboarding";
+import Dashboard from "@/components/Dashboard";
 
 const Index = () => {
+  const [state, setState] = useState(getAppState());
+  const hasKey = !!getApiKey();
+
+  const handleOnboardingComplete = (language: LanguageCode, difficulty: Difficulty) => {
+    const newState = {
+      ...state,
+      currentLanguage: language,
+      difficulty,
+      onboarded: true,
+      apiKey: "set",
+    };
+    saveAppState(newState);
+    setState(newState);
+  };
+
+  if (!hasKey || !state.onboarded || !state.currentLanguage) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <Dashboard
+      language={state.currentLanguage}
+      difficulty={state.difficulty}
+      onChangeLanguage={() => {
+        const newState = { ...state, onboarded: false };
+        saveAppState(newState);
+        setState(newState);
+      }}
+      onLogout={() => {
+        const newState = { ...state, onboarded: false, apiKey: null };
+        saveAppState(newState);
+        setState(newState);
+      }}
+    />
   );
 };
 
