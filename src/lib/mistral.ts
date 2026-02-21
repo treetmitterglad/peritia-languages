@@ -45,26 +45,40 @@ export async function generateLesson(
 Student context: ${context}
 ${topic ? `Requested topic: ${topic}` : "Choose an appropriate next topic based on their progress."}
 
-Generate a lesson with exactly 5 exercises. Return ONLY valid JSON (no markdown, no code blocks):
+Create a structured lesson that TEACHES first, then tests. Return ONLY valid JSON (no markdown, no code blocks):
 {
   "topic": "topic name",
+  "introduction": "1-2 sentence intro explaining what the student will learn and why it's useful",
+  "teachingCards": [
+    {
+      "targetPhrase": "word or phrase in ${langName}",
+      "translation": "English meaning",
+      "pronunciation": "approximate pronunciation guide for English speakers",
+      "exampleSentence": "a simple sentence using this word in ${langName}",
+      "exampleTranslation": "English translation of the example",
+      "note": "optional grammar tip, cultural note, or memory trick"
+    }
+  ],
   "exercises": [
     {
       "type": "multiple_choice",
-      "question": "What does 'X' mean in English?",
+      "question": "question that tests what was just taught",
       "options": ["option1", "option2", "option3", "option4"],
       "correctIndex": 0,
-      "hint": "optional hint",
-      "explanation": "brief explanation"
+      "hint": "optional hint referencing the teaching",
+      "explanation": "brief explanation connecting back to what was taught"
     }
   ],
   "newWords": [{"word": "target word", "translation": "english meaning"}]
 }
 
-Mix exercise types: multiple_choice (translate word/phrase), word_match (match pairs), fill_blank (complete the sentence).
-For fill_blank, put ___ where the blank goes and options are possible fills.
-For word_match, question describes the task, options are the items to consider, correctIndex is the matching one.
-Keep it mobile-friendly: short text, 4 options max. Make it progressively challenging.`;
+IMPORTANT RULES:
+- Include 4-6 teachingCards that build on each other (simple → complex).
+- Then 5 exercises that ONLY test vocabulary/concepts from the teachingCards above.
+- Exercises should directly reference what was taught, not random trivia.
+- Mix exercise types: multiple_choice, fill_blank (use ___ for blank), word_match.
+- For fill_blank, options are possible fills. For word_match, correctIndex is the match.
+- Keep text short and mobile-friendly. 4 options max per exercise.`;
 
   const response = await callMistral(apiKey, [
     { role: "system", content: "You are a language teaching AI. Always respond with valid JSON only, no markdown formatting." },
@@ -78,6 +92,10 @@ Keep it mobile-friendly: short text, 4 options max. Make it progressively challe
     // Fallback lesson
     return {
       topic: "Basic Greetings",
+      introduction: `Let's learn how to greet people in ${langName}!`,
+      teachingCards: [
+        { targetPhrase: "Hola", translation: "Hello", pronunciation: "OH-lah", exampleSentence: "¡Hola! ¿Cómo estás?", exampleTranslation: "Hello! How are you?" },
+      ],
       exercises: [
         {
           type: "multiple_choice",
