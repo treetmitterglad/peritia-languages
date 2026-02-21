@@ -64,8 +64,19 @@ export interface LessonExercise {
   explanation?: string;
 }
 
+export interface TeachingCard {
+  targetPhrase: string;
+  translation: string;
+  pronunciation?: string;
+  exampleSentence?: string;
+  exampleTranslation?: string;
+  note?: string;
+}
+
 export interface LessonData {
   topic: string;
+  introduction: string;
+  teachingCards: TeachingCard[];
   exercises: LessonExercise[];
   newWords: { word: string; translation: string }[];
 }
