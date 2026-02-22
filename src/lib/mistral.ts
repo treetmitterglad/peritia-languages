@@ -14,23 +14,37 @@ async function callMistral(
     throw new Error("Invalid API key");
   }
 
-  const res = await fetch(MISTRAL_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0.7,
-      max_tokens: 2000,
-    }),
-  });
+  const maxRetries = 3;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const res = await fetch(MISTRAL_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.7,
+        max_tokens: 2000,
+      }),
+    });
 
-  if (!res.ok) {
+    if (res.ok) {
+      const data = await res.json();
+      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        throw new Error("Invalid response from API");
+      }
+      return data.choices[0].message.content;
+    }
+
     if (res.status === 401) {
       throw new Error("Invalid API key. Please check your Mistral API key.");
+    }
+    if (res.status === 429 && attempt < maxRetries) {
+      const wait = Math.pow(2, attempt + 1) * 1000 + Math.random() * 1000;
+      await new Promise(r => setTimeout(r, wait));
+      continue;
     }
     if (res.status === 429) {
       throw new Error("Rate limit exceeded. Please try again in a moment.");
@@ -38,12 +52,7 @@ async function callMistral(
     const err = await res.text();
     throw new Error(`API error (${res.status}): ${err}`);
   }
-
-  const data = await res.json();
-  if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-    throw new Error("Invalid response from API");
-  }
-  return data.choices[0].message.content;
+  throw new Error("Max retries exceeded");
 }
 
 function getLangName(code: LanguageCode): string {
@@ -247,20 +256,20 @@ export async function generateLessonProgressive(
     return;
   }
 
-  // Phase 3: Validate each exercise in parallel (batched)
-  const validationResults = await Promise.all(
-    exercises.map(ex => validateExercise(apiKey, ex, teaching.teachingCards, language))
-  );
-
+  // Phase 3: Validate exercises sequentially to avoid rate limits
   let validIndex = 0;
   for (let i = 0; i < exercises.length; i++) {
-    const result = validationResults[i];
-    if (result.valid) {
+    try {
+      const result = await validateExercise(apiKey, exercises[i], teaching.teachingCards, language);
+      if (result.valid) {
+        callbacks.onExerciseReady(exercises[i], validIndex++);
+      } else if (result.fixed) {
+        callbacks.onExerciseReady(result.fixed, validIndex++);
+      }
+    } catch {
+      // If validation fails due to rate limit etc., accept the exercise as-is
       callbacks.onExerciseReady(exercises[i], validIndex++);
-    } else if (result.fixed) {
-      callbacks.onExerciseReady(result.fixed, validIndex++);
     }
-    // Skip exercises that are invalid and unfixable
   }
 
   if (validIndex === 0) {
