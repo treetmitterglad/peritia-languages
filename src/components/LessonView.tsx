@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LessonData, TeachingCard, LanguageCode, Difficulty, SUPPORTED_LANGUAGES } from "@/lib/types";
-import { generateLesson } from "@/lib/mistral";
+import { LessonData, TeachingCard, LessonExercise, LanguageCode, Difficulty, SUPPORTED_LANGUAGES } from "@/lib/types";
+import { generateLessonProgressive } from "@/lib/mistral";
 import { getApiKey, getProgress, saveProgress } from "@/lib/storage";
 import { playSound } from "@/lib/sounds";
 import { Loader2, Check, X, ArrowRight, Zap, Trophy, BookOpen, Sparkles, Star } from "lucide-react";
@@ -12,7 +12,7 @@ interface LessonViewProps {
   onBack: () => void;
 }
 
-type LessonPhase = "teaching" | "quiz" | "results";
+type LessonPhase = "loading" | "teaching" | "quiz" | "results";
 
 const TeachingCardView = ({
   card,
@@ -21,6 +21,7 @@ const TeachingCardView = ({
   onNext,
   onStartQuiz,
   isLast,
+  quizReady,
 }: {
   card: TeachingCard;
   index: number;
@@ -28,6 +29,7 @@ const TeachingCardView = ({
   onNext: () => void;
   onStartQuiz: () => void;
   isLast: boolean;
+  quizReady: boolean;
 }) => (
   <motion.div
     key={index}
@@ -63,30 +65,44 @@ const TeachingCardView = ({
     )}
 
     <div className="flex gap-3 mt-2">
-      <button
-        onClick={isLast ? onStartQuiz : onNext}
-        className="flex-1 py-4 rounded-xl bg-primary text-primary-foreground font-semibold text-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all"
-      >
-        {isLast ? (
-          <>
-            Start Practice <Zap className="w-5 h-5" />
-          </>
-        ) : (
-          <>
-            Next <ArrowRight className="w-5 h-5" />
-          </>
-        )}
-      </button>
+      {isLast ? (
+        <button
+          onClick={onStartQuiz}
+          disabled={!quizReady}
+          className="flex-1 py-4 rounded-xl bg-primary text-primary-foreground font-semibold text-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-60"
+        >
+          {quizReady ? (
+            <>Start Practice <Zap className="w-5 h-5" /></>
+          ) : (
+            <><Loader2 className="w-5 h-5 animate-spin" /> Preparing exercises...</>
+          )}
+        </button>
+      ) : (
+        <button
+          onClick={onNext}
+          className="flex-1 py-4 rounded-xl bg-primary text-primary-foreground font-semibold text-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all"
+        >
+          Next <ArrowRight className="w-5 h-5" />
+        </button>
+      )}
     </div>
   </motion.div>
 );
 
 const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
-  const [lesson, setLesson] = useState<LessonData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [phase, setPhase] = useState<LessonPhase>("loading");
   const [error, setError] = useState("");
-  const [phase, setPhase] = useState<LessonPhase>("teaching");
+
+  // Teaching state
+  const [topic, setTopic] = useState("");
+  const [introduction, setIntroduction] = useState("");
+  const [teachingCards, setTeachingCards] = useState<TeachingCard[]>([]);
+  const [newWords, setNewWords] = useState<{ word: string; translation: string }[]>([]);
   const [teachIdx, setTeachIdx] = useState(0);
+
+  // Exercise state
+  const [exercises, setExercises] = useState<LessonExercise[]>([]);
+  const [exercisesReady, setExercisesReady] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [answered, setAnswered] = useState(false);
@@ -95,37 +111,48 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
   const langName = SUPPORTED_LANGUAGES.find((l) => l.code === language)?.name ?? "";
 
   const loadLesson = useCallback(async () => {
-    setLoading(true);
+    setPhase("loading");
     setError("");
+    setTeachingCards([]);
+    setExercises([]);
+    setExercisesReady(false);
+    setTeachIdx(0);
+    setCurrentIdx(0);
+    setSelected(null);
+    setAnswered(false);
+    setScore(0);
+
     const apiKey = getApiKey();
     if (!apiKey) {
       setError("No API key found. Please add your API key in settings.");
-      setLoading(false);
       return;
     }
-    try {
-      const data = await generateLesson(apiKey, language, difficulty);
-      if (!data || !data.exercises || data.exercises.length === 0) {
-        throw new Error("Invalid lesson data received");
-      }
-      setLesson(data);
-      setPhase("teaching");
-      setTeachIdx(0);
-      setCurrentIdx(0);
-      setSelected(null);
-      setAnswered(false);
-      setScore(0);
-    } catch (e: any) {
-      setError(e.message || "Failed to generate lesson. Please try again.");
-    }
-    setLoading(false);
+
+    await generateLessonProgressive(apiKey, language, difficulty, {
+      onTeachingReady: (data) => {
+        setTopic(data.topic);
+        setIntroduction(data.introduction);
+        setTeachingCards(data.teachingCards);
+        setNewWords(data.newWords);
+        setPhase("teaching");
+      },
+      onExerciseReady: (exercise, _index) => {
+        setExercises(prev => [...prev, exercise]);
+      },
+      onComplete: () => {
+        setExercisesReady(true);
+      },
+      onError: (err) => {
+        setError(err);
+      },
+    });
   }, [language, difficulty]);
 
   useEffect(() => {
     loadLesson();
   }, [loadLesson]);
 
-  const exercise = lesson?.exercises[currentIdx];
+  const exercise = exercises[currentIdx];
   const isCorrect = selected === exercise?.correctIndex;
 
   const handleSelect = (idx: number) => {
@@ -141,8 +168,7 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
   };
 
   const handleNext = () => {
-    if (!lesson) return;
-    if (currentIdx < lesson.exercises.length - 1) {
+    if (currentIdx < exercises.length - 1) {
       setCurrentIdx((i) => i + 1);
       setSelected(null);
       setAnswered(false);
@@ -158,22 +184,23 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
         progress.streak += 1;
       }
       progress.lastSessionDate = today;
-      if (lesson.newWords) {
+      if (newWords.length > 0) {
         progress.wordsLearned = [
-          ...new Set([...progress.wordsLearned, ...lesson.newWords.map((w) => w.word)]),
+          ...new Set([...progress.wordsLearned, ...newWords.map((w) => w.word)]),
         ];
       }
       progress.sessionHistory.push({
         date: today,
-        topic: lesson.topic,
-        wordsIntroduced: lesson.newWords?.map((w) => w.word) ?? [],
-        accuracy: Math.round((score / lesson.exercises.length) * 100),
+        topic,
+        wordsIntroduced: newWords.map((w) => w.word),
+        accuracy: Math.round((score / exercises.length) * 100),
       });
       saveProgress(language, progress);
     }
   };
 
-  if (loading) {
+  // — LOADING PHASE —
+  if (phase === "loading") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />
@@ -182,7 +209,7 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
     );
   }
 
-  if (error) {
+  if (error && phase !== "teaching") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 p-6">
         <p className="text-destructive">{error}</p>
@@ -193,18 +220,17 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
     );
   }
 
-  if (!lesson) return null;
-
-  const teachingCards = lesson.teachingCards ?? [];
-  const totalSteps = teachingCards.length + lesson.exercises.length;
+  const totalSteps = teachingCards.length + exercises.length;
   const currentStep = phase === "teaching" ? teachIdx : teachingCards.length + currentIdx;
-  const progressPct = (currentStep / totalSteps) * 100;
+  const progressPct = totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
 
   // — TEACHING PHASE —
   if (phase === "teaching") {
     const card = teachingCards[teachIdx];
     if (!card) {
-      setPhase("quiz");
+      if (exercisesReady && exercises.length > 0) {
+        setPhase("quiz");
+      }
       return null;
     }
 
@@ -219,14 +245,19 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
         </div>
 
         <div className="flex items-center gap-2 mb-4">
-          <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">{lesson.topic}</span>
+          <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">{topic}</span>
           <span className="px-3 py-1 rounded-full bg-accent text-accent-foreground text-xs font-semibold flex items-center gap-1">
             <BookOpen className="w-3 h-3" /> Learn
           </span>
+          {!exercisesReady && (
+            <span className="px-3 py-1 rounded-full bg-secondary text-muted-foreground text-xs font-semibold flex items-center gap-1">
+              <Loader2 className="w-3 h-3 animate-spin" /> Validating
+            </span>
+          )}
         </div>
 
-        {teachIdx === 0 && lesson.introduction && (
-          <p className="text-muted-foreground text-sm mb-4">{lesson.introduction}</p>
+        {teachIdx === 0 && introduction && (
+          <p className="text-muted-foreground text-sm mb-4">{introduction}</p>
         )}
 
         <div className="flex-1">
@@ -237,8 +268,11 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
               index={teachIdx}
               total={teachingCards.length}
               onNext={() => setTeachIdx((i) => i + 1)}
-              onStartQuiz={() => setPhase("quiz")}
+              onStartQuiz={() => {
+                if (exercisesReady && exercises.length > 0) setPhase("quiz");
+              }}
               isLast={teachIdx === teachingCards.length - 1}
+              quizReady={exercisesReady && exercises.length > 0}
             />
           </AnimatePresence>
         </div>
@@ -248,7 +282,7 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
 
   // — RESULTS PHASE —
   if (phase === "results") {
-    const pct = Math.round((score / lesson.exercises.length) * 100);
+    const pct = Math.round((score / exercises.length) * 100);
     const isPerfect = pct === 100;
     const isGreat = pct >= 80;
     
@@ -323,7 +357,7 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
           </motion.span>
         </motion.div>
         
-        {lesson.newWords && lesson.newWords.length > 0 && (
+        {newWords.length > 0 && (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -332,7 +366,7 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
           >
             <p className="text-sm font-semibold text-foreground mb-2">Words learned:</p>
             <div className="flex flex-wrap gap-2">
-              {lesson.newWords.map((w, i) => (
+              {newWords.map((w, i) => (
                 <motion.span 
                   key={w.word}
                   initial={{ opacity: 0, scale: 0 }}
@@ -370,11 +404,11 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
         <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
           <motion.div className="h-full bg-primary rounded-full" animate={{ width: `${progressPct}%` }} transition={{ duration: 0.3 }} />
         </div>
-        <span className="text-sm text-muted-foreground font-medium">{currentIdx + 1}/{lesson.exercises.length}</span>
+        <span className="text-sm text-muted-foreground font-medium">{currentIdx + 1}/{exercises.length}</span>
       </div>
 
       <div className="flex items-center gap-2 mb-4">
-        <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">{lesson.topic}</span>
+        <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">{topic}</span>
         <span className="px-3 py-1 rounded-full bg-accent text-accent-foreground text-xs font-semibold flex items-center gap-1">
           <Zap className="w-3 h-3" /> Practice
         </span>
@@ -458,7 +492,7 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
                 isCorrect ? "bg-success text-success-foreground" : "bg-primary text-primary-foreground"
               }`}
             >
-              {currentIdx < lesson.exercises.length - 1 ? (
+              {currentIdx < exercises.length - 1 ? (
                 <>Continue <ArrowRight className="w-5 h-5" /></>
               ) : (
                 <>See Results <Trophy className="w-5 h-5" /></>
