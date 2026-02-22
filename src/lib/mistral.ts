@@ -119,7 +119,7 @@ async function generateExercises(
   const langName = getLangName(language);
   const wordsRef = teachingCards.map(c => `${c.targetPhrase} = ${c.translation}`).join(", ");
 
-  const prompt = `You are a ${langName} language tutor. A student just learned these words/phrases: ${wordsRef}
+  const prompt = `You are a ${langName} language tutor for an American English speaker. A student just learned these words/phrases: ${wordsRef}
 Topic: ${topic}, Level: ${difficulty}.
 
 Generate exercises that ONLY test the vocabulary listed above. Return ONLY a JSON array (no markdown):
@@ -141,7 +141,10 @@ RULES:
 - Mix types: multiple_choice, fill_blank (use ___ for blank), word_match.
 - For fill_blank, options are possible fills. For word_match, correctIndex is the match.
 - 4 options max per exercise. All options must be plausible but distinguishable.
-- Questions must be clear and complete — no truncated sentences.`;
+- Questions must be clear and complete — no truncated sentences.
+- IMPORTANT: Write ALL questions, hints, and explanations in ENGLISH. Only the answer options for ${langName} vocabulary should be in ${langName}. The student is an English speaker — they need to understand the questions.
+- Example good question: "How do you say 'hello' in ${langName}?" or "What does 'Hola' mean in English?"
+- Example BAD question: "¿Cómo se dice 'hello'?" — do NOT write questions in ${langName}.`;
 
   const response = await callMistral(apiKey, [
     { role: "system", content: "You are a language teaching AI. Always respond with valid JSON only." },
