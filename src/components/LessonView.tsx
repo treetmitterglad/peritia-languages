@@ -4,7 +4,8 @@ import { LessonData, TeachingCard, LessonExercise, LanguageCode, Difficulty, SUP
 import { generateLessonProgressive } from "@/lib/mistral";
 import { getApiKey, getProgress, saveProgress } from "@/lib/storage";
 import { playSound } from "@/lib/sounds";
-import { Loader2, Check, X, ArrowRight, Zap, Trophy, BookOpen, Sparkles, Star } from "lucide-react";
+import { isVoiceAvailable, playTTS, speechToText, createAudioRecorder } from "@/lib/voice";
+import { Loader2, Check, X, ArrowRight, Zap, Trophy, BookOpen, Sparkles, Star, Volume2, Mic, MicOff } from "lucide-react";
 
 interface LessonViewProps {
   language: LanguageCode;
@@ -14,6 +15,38 @@ interface LessonViewProps {
 
 type LessonPhase = "loading" | "teaching" | "quiz" | "results";
 
+const TTSButton = ({ text, language }: { text: string; language: string }) => {
+  const [playing, setPlaying] = useState(false);
+  const cleanupRef = useRef<(() => void) | null>(null);
+
+  const handlePlay = async () => {
+    if (playing && cleanupRef.current) {
+      cleanupRef.current();
+      cleanupRef.current = null;
+      setPlaying(false);
+      return;
+    }
+    setPlaying(true);
+    try {
+      cleanupRef.current = await playTTS(text, language);
+      // Auto-stop after reasonable time
+      setTimeout(() => setPlaying(false), 10000);
+    } catch {
+      setPlaying(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handlePlay}
+      className="p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+      title="Listen to pronunciation"
+    >
+      <Volume2 className={`w-5 h-5 ${playing ? "animate-pulse" : ""}`} />
+    </button>
+  );
+};
+
 const TeachingCardView = ({
   card,
   index,
@@ -22,6 +55,8 @@ const TeachingCardView = ({
   onStartQuiz,
   isLast,
   quizReady,
+  voiceEnabled,
+  langCode,
 }: {
   card: TeachingCard;
   index: number;
@@ -30,6 +65,8 @@ const TeachingCardView = ({
   onStartQuiz: () => void;
   isLast: boolean;
   quizReady: boolean;
+  voiceEnabled: boolean;
+  langCode: string;
 }) => (
   <motion.div
     key={index}
@@ -39,20 +76,32 @@ const TeachingCardView = ({
     className="flex flex-col gap-4"
   >
     <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-      <p className="text-3xl font-display font-bold text-foreground mb-1">
-        {card.targetPhrase}
-      </p>
-      {card.pronunciation && (
-        <p className="text-sm text-muted-foreground italic mb-3">
-          /{card.pronunciation}/
-        </p>
-      )}
-      <p className="text-lg text-primary font-semibold">{card.translation}</p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1">
+          <p className="text-3xl font-display font-bold text-foreground mb-1">
+            {card.targetPhrase}
+          </p>
+          {card.pronunciation && (
+            <p className="text-sm text-muted-foreground italic mb-3">
+              /{card.pronunciation}/
+            </p>
+          )}
+          <p className="text-lg text-primary font-semibold">{card.translation}</p>
+        </div>
+        {voiceEnabled && (
+          <TTSButton text={card.targetPhrase} language={langCode} />
+        )}
+      </div>
     </div>
 
     {card.exampleSentence && (
       <div className="bg-secondary/50 border border-border rounded-xl p-4">
-        <p className="text-sm font-semibold text-muted-foreground mb-1">Example</p>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-sm font-semibold text-muted-foreground">Example</p>
+          {voiceEnabled && card.exampleSentence && (
+            <TTSButton text={card.exampleSentence} language={langCode} />
+          )}
+        </div>
         <p className="text-foreground font-medium">{card.exampleSentence}</p>
         <p className="text-sm text-muted-foreground mt-1">{card.exampleTranslation}</p>
       </div>
@@ -108,7 +157,14 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
   const [answered, setAnswered] = useState(false);
   const [score, setScore] = useState(0);
 
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+
   const langName = SUPPORTED_LANGUAGES.find((l) => l.code === language)?.name ?? "";
+
+  // Check if voice backend is available
+  useEffect(() => {
+    isVoiceAvailable().then(setVoiceEnabled);
+  }, []);
 
   const loadLesson = useCallback(async () => {
     setPhase("loading");
@@ -273,6 +329,8 @@ const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
               }}
               isLast={teachIdx === teachingCards.length - 1}
               quizReady={exercisesReady && exercises.length > 0}
+              voiceEnabled={voiceEnabled}
+              langCode={language}
             />
           </AnimatePresence>
         </div>
