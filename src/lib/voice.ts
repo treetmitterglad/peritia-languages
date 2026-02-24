@@ -5,7 +5,10 @@
 
 const VOICE_API_BASE = import.meta.env.VITE_VOICE_API_URL || "http://localhost:5151";
 
-interface VoiceStatus {
+export interface DownloadProgress {
+  phase: "idle" | "detecting" | "downloading_whisper" | "downloading_tts" | "ready" | "error";
+  progress: number;
+  detail: string;
   hardware: {
     cpu_cores: number;
     ram_gb: number;
@@ -13,11 +16,9 @@ interface VoiceStatus {
     gpu_name: string | null;
     vram_gb: number;
     device: string;
-  };
-  whisper_model: string;
-  whisper_loaded: boolean;
-  tts_model: string;
-  tts_loaded: boolean;
+  } | null;
+  whisper_model: string | null;
+  tts_model: string | null;
 }
 
 interface STTResult {
@@ -50,11 +51,23 @@ export function resetVoiceCheck() {
 }
 
 /**
- * Get voice backend status including hardware info and loaded models.
+ * Start model setup (hardware detection + download).
  */
-export async function getVoiceStatus(): Promise<VoiceStatus | null> {
+export async function startModelSetup(): Promise<boolean> {
   try {
-    const res = await fetch(`${VOICE_API_BASE}/api/voice/status`);
+    const res = await fetch(`${VOICE_API_BASE}/api/voice/setup`, { method: "POST" });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Poll download progress.
+ */
+export async function getDownloadProgress(): Promise<DownloadProgress | null> {
+  try {
+    const res = await fetch(`${VOICE_API_BASE}/api/voice/download-progress`);
     if (!res.ok) return null;
     return await res.json();
   } catch {

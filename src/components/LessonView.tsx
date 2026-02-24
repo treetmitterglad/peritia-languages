@@ -67,7 +67,17 @@ const TeachingCardView = ({
   quizReady: boolean;
   voiceEnabled: boolean;
   langCode: string;
-}) => (
+}) => {
+  // Auto-play TTS when card appears
+  const autoPlayedRef = useRef(false);
+  useEffect(() => {
+    if (voiceEnabled && !autoPlayedRef.current) {
+      autoPlayedRef.current = true;
+      playTTS(card.targetPhrase, langCode).catch(() => {});
+    }
+  }, [voiceEnabled, card.targetPhrase, langCode]);
+
+  return (
   <motion.div
     key={index}
     initial={{ opacity: 0, x: 40 }}
@@ -136,7 +146,8 @@ const TeachingCardView = ({
       )}
     </div>
   </motion.div>
-);
+  );
+};
 
 const LessonView = ({ language, difficulty, onBack }: LessonViewProps) => {
   const [phase, setPhase] = useState<LessonPhase>("loading");
