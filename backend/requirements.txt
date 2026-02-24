@@ -1,0 +1,10 @@
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+chatterbox-tts
+faster-whisper
+torch
+torchaudio
+numpy<2.0
+psutil
+pydantic>=2.0
+python-multipart

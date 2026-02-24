@@ -20,13 +20,6 @@ services:
       - voice-models:/app/models
     environment:
       - MODELS_DIR=/app/models
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
 
 volumes:
   voice-models:
